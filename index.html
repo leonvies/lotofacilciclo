@@ -8,12 +8,11 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-deep: #020617;
             --accent: #6366f1;
-            --success: #10b981;
         }
         body {
             background-color: var(--bg-deep);
@@ -22,54 +21,53 @@
             -webkit-tap-highlight-color: transparent;
             overscroll-behavior-y: contain;
         }
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
         
-        .glass {
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        /* Fonte limpa para os números sem o zero cortado */
+        .font-num { 
+            font-family: 'Inter', sans-serif; 
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.05em;
         }
-
+        
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        
-        @keyframes pulse-ring {
-            0% { transform: scale(0.95); opacity: 0.5; }
-            50% { transform: scale(1.05); opacity: 1; }
-            100% { transform: scale(0.95); opacity: 0.5; }
-        }
-        .animate-target { animation: pulse-ring 2s infinite ease-in-out; }
 
-        /* Estilização da Barra de Ajuste (Slider) com mais corpo */
-        input[type=range] {
-            -webkit-appearance: none;
-            width: 100%;
-            background: transparent;
+        .btn-select {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-select:active {
+            transform: scale(0.95);
         }
 
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 12px; /* Aumentado para dar mais corpo */
-            cursor: pointer;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        /* Estilo das bolas de sorteio */
+        .lotto-ball {
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            position: relative;
+            box-shadow: inset -4px -4px 8px rgba(0,0,0,0.3), 0 4px 10px rgba(0,0,0,0.4);
         }
 
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 28px; /* Aumentado para facilitar o toque */
-            width: 28px; /* Aumentado para facilitar o toque */
+        /* Brilho superior para efeito 3D de bola */
+        .lotto-ball::after {
+            content: '';
+            position: absolute;
+            top: 15%;
+            left: 15%;
+            width: 30%;
+            height: 30%;
+            background: rgba(255, 255, 255, 0.25);
             border-radius: 50%;
-            background: var(--accent);
-            cursor: pointer;
-            margin-top: -9px; /* Centraliza o thumb no track de 12px */
-            border: 4px solid #000;
-            box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+            filter: blur(2px);
         }
 
-        input[type=range]:active::-webkit-slider-thumb {
-            transform: scale(1.1);
-            background: #818cf8;
+        /* Efeito de Relevo nos Cards */
+        .card-relief {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6));
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 
+                        0 10px 10px -5px rgba(0, 0, 0, 0.4),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.05);
         }
     </style>
 </head>
@@ -84,10 +82,34 @@
             Check: () => <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="3" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
         };
 
+        const getBallStyle = (number) => {
+            const lastDigit = number % 10;
+            const config = {
+                1: { bg: '#e11d48', text: '#fff' },
+                2: { bg: '#fbbf24', text: '#000' },
+                3: { bg: '#16a34a', text: '#fff' },
+                4: { bg: '#92400e', text: '#fff' },
+                5: { bg: '#2563eb', text: '#fff' },
+                6: { bg: '#db2777', text: '#fff' },
+                7: { bg: '#111827', text: '#fff' },
+                8: { bg: '#4b5563', text: '#fff' },
+                9: { bg: '#ea580c', text: '#fff' },
+                0: { bg: '#f8fafc', text: '#000' }
+            };
+            return config[lastDigit];
+        };
+
+        const FREQUENCY_LEVELS = [
+            { id: 0, val: 100, label: "Nível 1", sub: "100+ Sorteios" },
+            { id: 1, val: 150, label: "Nível 2", sub: "150+ Sorteios" },
+            { id: 2, val: 200, label: "Nível 3", sub: "200+ Sorteios" },
+            { id: 3, val: 250, label: "Elite", sub: "Acima de 200" }
+        ];
+
         const App = () => {
             const [results, setResults] = useState([]);
             const [loading, setLoading] = useState(true);
-            const [minFreq, setMinFreq] = useState(150);
+            const [levelIndex, setLevelIndex] = useState(1);
 
             useEffect(() => {
                 fetch('https://loteriascaixa-api.herokuapp.com/api/lotofacil')
@@ -98,6 +120,8 @@
                     })
                     .catch(() => setLoading(false));
             }, []);
+
+            const currentMinFreq = FREQUENCY_LEVELS[levelIndex].val;
 
             const analysis = useMemo(() => {
                 if (results.length === 0) return null;
@@ -110,7 +134,7 @@
                         freqMap[num] = (freqMap[num] || 0) + 1;
                     });
 
-                    const pool = Object.keys(freqMap).map(Number).filter(n => freqMap[n] >= minFreq);
+                    const pool = Object.keys(freqMap).map(Number).filter(n => freqMap[n] >= currentMinFreq);
                     let currentSet = new Set();
                     let cycleCount = 0;
 
@@ -132,18 +156,17 @@
                         col: colIdx + 1,
                         missing: missing.sort((a,b) => a - b),
                         present: present.sort((a,b) => a - b),
-                        poolSize: pool.length,
                         cycleCount,
-                        progress: (((pool.length - missing.length) / pool.length) * 100).toFixed(0),
+                        progress: pool.length > 0 ? (((pool.length - missing.length) / pool.length) * 100).toFixed(0) : 0,
                         freqMap
                     };
                 });
-            }, [results, minFreq]);
+            }, [results, currentMinFreq]);
 
             if (loading) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-[#020617]">
                     <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Analizando Dados...</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 text-center">Sincronizando Globos...</span>
                 </div>
             );
 
@@ -152,111 +175,128 @@
                     <header className="p-6 pb-2">
                         <div className="flex items-center gap-3">
                             <div className="text-indigo-500"><Icons.Target /></div>
-                            <h1 className="text-xl font-black tracking-tighter italic uppercase">CICLOS POR <span className="text-indigo-400">COLUNA</span></h1>
+                            <h1 className="text-xl font-black tracking-tighter italic uppercase text-white">CICLOS POR <span className="text-indigo-400">COLUNA</span></h1>
                         </div>
                     </header>
 
-                    {/* Configurações Expostas e Ajustadas */}
-                    <div className="mx-4 mb-4 p-5 bg-slate-900/50 border border-white/5 rounded-3xl shadow-lg">
-                        <div className="flex justify-between items-center mb-4">
-                            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block italic">Filtro de Números (Frequência)</label>
-                            <span className="bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-lg font-mono text-xs font-bold">{minFreq}x</span>
-                        </div>
+                    {/* Filtro por Níveis */}
+                    <div className="mx-4 mb-4 p-5 bg-slate-900/50 border border-white/10 rounded-[2rem] shadow-lg">
+                        <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block mb-4 italic">Filtro de Frequência Histórica</label>
                         
-                        <div className="relative flex items-center mb-3">
-                            <input 
-                                type="range" min="50" max="300" value={minFreq} 
-                                onChange={(e) => setMinFreq(e.target.value)}
-                                className="w-full h-3 accent-indigo-500"
-                            />
-                        </div>
-                        
-                        <div className="flex justify-between font-mono text-[9px] text-slate-500 font-bold uppercase tracking-tighter">
-                            <div className="flex flex-col items-start">
-                                <span>+ Números</span>
-                                <span className="opacity-50">Menos Rígido</span>
-                            </div>
-                            <div className="flex flex-col items-end">
-                                <span>- Números</span>
-                                <span className="opacity-50">Mais Rígido</span>
-                            </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            {FREQUENCY_LEVELS.map((level) => (
+                                <button
+                                    key={level.id}
+                                    onClick={() => setLevelIndex(level.id)}
+                                    className={`btn-select text-left p-3 rounded-2xl border transition-all ${
+                                        levelIndex === level.id 
+                                        ? 'bg-indigo-600 border-indigo-400 shadow-lg shadow-indigo-600/20' 
+                                        : 'bg-white/5 border-white/5 opacity-60'
+                                    }`}
+                                >
+                                    <p className={`text-[10px] font-black uppercase tracking-tighter ${levelIndex === level.id ? 'text-indigo-100' : 'text-slate-400'}`}>
+                                        {level.label}
+                                    </p>
+                                    <p className={`text-xs font-bold ${levelIndex === level.id ? 'text-white' : 'text-slate-300'}`}>
+                                        {level.sub}
+                                    </p>
+                                </button>
+                            ))}
                         </div>
                     </div>
 
                     <div className="px-4 mb-6">
-                        <div className="bg-slate-900/50 border border-white/5 p-4 rounded-3xl flex justify-between items-center">
+                        <div className="bg-slate-900/50 border border-white/10 p-4 rounded-3xl flex justify-between items-center shadow-inner">
                             <div>
-                                <p className="text-[9px] font-black text-slate-500 uppercase">Último Concurso</p>
-                                <p className="text-lg font-mono font-black text-white">#{results[0]?.concurso}</p>
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">Último Concurso</p>
+                                <p className="text-lg font-num font-black text-white leading-tight">#{results[0]?.concurso}</p>
                             </div>
                             <div className="text-right">
-                                <p className="text-[9px] font-black text-slate-500 uppercase">Base de Dados</p>
-                                <p className="text-sm font-mono font-bold text-slate-300">{results.length} JOGOS</p>
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">Total de Jogos</p>
+                                <p className="text-sm font-num font-bold text-slate-300 leading-tight">{results.length}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="px-4 space-y-6">
+                    <div className="px-4 space-y-8">
                         {analysis?.map((item) => (
-                            <div key={item.col} className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-6 shadow-xl">
+                            <div key={item.col} className="card-relief border border-white/20 rounded-[2.5rem] p-6 relative overflow-hidden">
                                 <div className="flex justify-between items-start mb-6">
-                                    <div>
+                                    <div className="space-y-1">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <span className="px-2 py-0.5 bg-indigo-500 text-white text-[9px] font-black rounded uppercase">COLUNA {item.col}</span>
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ciclo {item.cycleCount}</span>
+                                            <span className="px-3 py-1 bg-indigo-500 text-white text-[11px] font-black rounded-lg uppercase shadow-md shadow-indigo-500/20 tracking-tight border border-white/10">COLUNA {item.col}</span>
+                                            <span className="text-[13px] font-black text-white uppercase tracking-widest">Ciclo {item.cycleCount}</span>
                                         </div>
-                                        <h3 className="text-xl font-black text-white tracking-tight">Faltam {item.missing.length} dezenas</h3>
+                                        <h3 className="text-xl font-black text-white tracking-tight leading-tight">
+                                            {item.missing.length > 0 ? `Faltam ${item.missing.length} dezenas` : "Ciclo Completo"}
+                                        </h3>
                                     </div>
                                     <div className="text-right">
-                                        <span className={`text-2xl font-black ${parseInt(item.progress) > 80 ? 'text-emerald-500' : 'text-slate-300'}`}>
+                                        <span className={`text-2xl font-black drop-shadow-md ${parseInt(item.progress) > 80 ? 'text-emerald-400' : 'text-slate-300'}`}>
                                             {item.progress}%
                                         </span>
                                     </div>
                                 </div>
 
-                                <div className="w-full bg-black/40 h-2 rounded-full mb-8 overflow-hidden">
+                                <div className="w-full bg-black/40 h-2.5 rounded-full mb-8 overflow-hidden border border-white/5 shadow-inner">
                                     <div 
-                                        className="h-full bg-indigo-500 transition-all duration-700 ease-out"
+                                        className="h-full bg-indigo-500 transition-all duration-700 ease-out shadow-[0_0_10px_rgba(99,102,241,0.5)]"
                                         style={{ width: `${item.progress}%` }}
                                     ></div>
                                 </div>
 
-                                {/* SEÇÃO: AGUARDANDO (O que ainda não veio) */}
+                                {/* SEÇÃO: AINDA NÃO VIERAM */}
                                 <div className="mb-6">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
-                                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest italic">Aguardando sorteio</span>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,1)]"></div>
+                                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest italic">Ainda não vieram</span>
                                     </div>
-                                    <div className="flex flex-wrap gap-2.5">
-                                        {item.missing.map(num => (
-                                            <div key={num} className="flex flex-col items-center">
-                                                <div className="w-12 h-12 rounded-2xl bg-indigo-500 border-2 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.4)] flex items-center justify-center animate-target">
-                                                    <span className="text-lg font-mono font-black text-white">{String(num).padStart(2, '0')}</span>
+                                    <div className="flex flex-wrap gap-4">
+                                        {item.missing.map(num => {
+                                            const ballStyle = getBallStyle(num);
+                                            return (
+                                                <div key={num} className="flex flex-col items-center">
+                                                    <div 
+                                                        className="lotto-ball w-12 border border-white/10" 
+                                                        style={{ backgroundColor: ballStyle.bg }}
+                                                    >
+                                                        <span 
+                                                            className="text-xl font-num font-black leading-none"
+                                                            style={{ color: ballStyle.text }}
+                                                        >
+                                                            {String(num).padStart(2, '0')}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-[9px] font-bold text-slate-400 mt-2 font-num uppercase tracking-tighter">{item.freqMap[num]}x</span>
                                                 </div>
-                                                <span className="text-[8px] font-bold text-indigo-400/60 mt-1 uppercase">{item.freqMap[num]}x</span>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                         {item.missing.length === 0 && (
-                                            <div className="w-full py-4 text-center border-2 border-dashed border-emerald-500/20 rounded-2xl">
-                                                <span className="text-xs font-black text-emerald-500 uppercase tracking-widest">Ciclo Concluído!</span>
+                                            <div className="w-full py-6 text-center border-2 border-dashed border-emerald-500/20 rounded-3xl bg-emerald-500/5 shadow-inner">
+                                                <span className="text-xs font-black text-emerald-500 uppercase tracking-[0.2em]">Ciclo Fechado!</span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
-                                {/* SEÇÃO: JÁ SORTEADOS (O que já veio no ciclo) */}
+                                {/* SEÇÃO: JÁ CONFIRMADOS NO CICLO */}
                                 {item.present.length > 0 && (
-                                    <div className="pt-4 border-t border-white/5">
-                                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest block mb-3 italic">Já sorteados no ciclo atual</span>
-                                        <div className="flex flex-wrap gap-2 opacity-30">
-                                            {item.present.map(num => (
-                                                <div key={num} className="relative w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center">
-                                                    <span className="text-xs font-mono font-bold text-slate-500">{String(num).padStart(2, '0')}</span>
-                                                    <div className="absolute -top-1 -right-1 bg-emerald-500 rounded-full p-0.5">
-                                                        <Icons.Check />
+                                    <div className="pt-5 border-t border-white/10">
+                                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest block mb-4 italic">Já vieram no ciclo</span>
+                                        <div className="flex flex-wrap gap-3 opacity-30 grayscale-[0.5]">
+                                            {item.present.map(num => {
+                                                const ballStyle = getBallStyle(num);
+                                                return (
+                                                    <div key={num} className="relative lotto-ball w-9 border border-white/5" style={{ backgroundColor: ballStyle.bg }}>
+                                                        <span className="text-xs font-num font-bold" style={{ color: ballStyle.text }}>
+                                                            {String(num).padStart(2, '0')}
+                                                        </span>
+                                                        <div className="absolute -top-1 -right-1 bg-emerald-500 rounded-full p-0.5 shadow-sm border border-[#020617]">
+                                                            <Icons.Check />
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
@@ -264,9 +304,12 @@
                         ))}
                     </div>
 
-                    <footer className="mt-12 mb-12 px-8 text-center">
+                    <footer className="mt-12 mb-12 px-8 text-center opacity-60">
                         <p className="text-[9px] font-bold text-slate-700 uppercase tracking-[0.4em]">Análise de Probabilidade Posicional</p>
-                        <p className="text-[8px] text-slate-800 mt-2 italic">As dezenas em azul são as que ainda não apareceram nesta coluna desde o início do ciclo real configurado.</p>
+                        <p className="text-[8px] text-slate-800 mt-3 italic leading-relaxed">
+                            Bolas coloridas seguem o padrão oficial CAIXA. 
+                            Foque nos números vibrantes para identificar o fechamento dos ciclos por coluna.
+                        </p>
                     </footer>
                 </div>
             );
